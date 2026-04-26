@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import logging
 import os
 import tempfile
 import urllib.parse
@@ -10,6 +11,30 @@ from contextlib import contextmanager
 from typing import Any, Iterator
 
 import yt_dlp
+
+# Keep container logs clean: yt-dlp still prints to stderr on each failed client attempt
+for _name in ("yt_dlp", "yt_dlp.cookies", "yt_dlp.networking"):
+    logging.getLogger(_name).setLevel(logging.CRITICAL + 1)
+del _name
+
+
+class _YdlLogger:
+    """Swallow yt-dlp console noise (retries would spam four ERROR: lines)."""
+
+    def debug(self, *args, **kwargs) -> None:  # noqa: ANN001, ANN002
+        return
+
+    def info(self, *args, **kwargs) -> None:  # noqa: ANN001, ANN002
+        return
+
+    def warning(self, *args, **kwargs) -> None:  # noqa: ANN001, ANN002
+        return
+
+    def error(self, *args, **kwargs) -> None:  # noqa: ANN001, ANN002
+        return
+
+    def trace(self, *args, **kwargs) -> None:  # noqa: ANN001, ANN002
+        return
 
 _ALLOWED_HOSTS = frozenset(
     {
@@ -57,10 +82,58 @@ _YT_CLIENT_LAYERS: list[dict[str, Any]] = [
 ]
 
 _BOT_HINT = (
-    "If you control the server, set YOUTUBE_COOKIES (raw Netscape cookie text) or "
-    "YOUTUBE_COOKIES_B64 (base64) from an exported browser cookie file. "
-    "see https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp"
+    "On your server, provide Netscape cookies: YOUTUBE_COOKIES (raw), YOUTUBE_COOKIES_B64, "
+    "or YOUTUBE_COOKIES_FILE (path to a cookie file, e.g. a mounted volume in Docker). "
+    "See https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies"
 )
+
+
+def _resolve_cookiefile_path() -> str | None:
+    """Path to a readable cookie file from env, or None."""
+    raw = (os.environ.get("YOUTUBE_COOKIES_FILE") or os.environ.get("YTDLP_COOKIES_FILE") or "").strip()
+    if not raw:
+        return None
+    p = os.path.expanduser(os.path.expandvars(raw))
+    if not os.path.isabs(p):
+        p = os.path.join(os.getcwd(), p)
+    p = os.path.normpath(p)
+    if os.path.isfile(p) and os.access(p, os.R_OK):
+        return p
+    return None
+
+
+def _cookies_configured() -> bool:
+    if (os.environ.get("YOUTUBE_COOKIES") or os.environ.get("YOUTUBE_COOKIES_B64") or "").strip():
+        return True
+    return _resolve_cookiefile_path() is not None
+
+
+def _cookiefile_env_misconfigured() -> str | None:
+    """If YOUTUBE_COOKIES_FILE is set but unusable, explain for operators."""
+    raw = (os.environ.get("YOUTUBE_COOKIES_FILE") or os.environ.get("YTDLP_COOKIES_FILE") or "").strip()
+    if not raw:
+        return None
+    if _resolve_cookiefile_path() is not None:
+        return None
+    p = os.path.expanduser(os.path.expandvars(raw))
+    if not os.path.isabs(p):
+        p = os.path.join(os.getcwd(), p)
+    p = os.path.normpath(p)
+    return (
+        f"YOUTUBE_COOKIES_FILE is {raw!r} (looked for {p!r}) but that file is missing or not "
+        f"readable in the container. Mount a volume or copy the file into the image."
+    )
+
+
+@contextmanager
+def _cookiefile_for_ydl() -> Iterator[str | None]:
+    """Cookie file: mounted path (YOUTUBE_COOKIES_FILE) first, else temp from env text."""
+    fixed = _resolve_cookiefile_path()
+    if fixed is not None:
+        yield fixed
+        return
+    with _env_cookie_path() as t:
+        yield t
 
 
 @contextmanager
@@ -176,13 +249,15 @@ def _extract_info(url: str) -> dict[str, Any] | None:
     """YouTube may block datacenter / bot clients; retry alternate player clients and cookies."""
     u = _strip_playlist_extras(url)
     last_err: Exception | None = None
-    with _env_cookie_path() as cookiefile:
+    with _cookiefile_for_ydl() as cookiefile:
         for layer in _YT_CLIENT_LAYERS:
             opts: dict[str, Any] = {
                 "quiet": True,
                 "no_warnings": True,
+                "noprogress": True,
                 "noplaylist": True,
                 "skip_download": True,
+                "logger": _YdlLogger(),
                 "http_headers": {
                     "User-Agent": UA,
                     "Accept-Language": "en-US,en;q=0.9",
@@ -206,6 +281,7 @@ def get_resolve_info() -> dict[str, Any]:
         "ok": True,
         "service": "ytdl-resolve",
         "usage": 'POST with JSON: {"url":"https://www.youtube.com/watch?v=..."}',
+        "cookiesConfigured": _cookies_configured(),
     }
 
 
@@ -233,7 +309,20 @@ def post_resolve_from_body(body: Any) -> dict[str, Any]:
             message = message[:400] + "…"
         hint = message
         if _is_bot_block_message(message):
-            hint = f"{message} — {_BOT_HINT}"
+            mfile = _cookiefile_env_misconfigured()
+            if mfile:
+                extra = f"{mfile} {_BOT_HINT}"
+            elif not _cookies_configured():
+                extra = (
+                    "No working cookie config (set YOUTUBE_COOKIES, YOUTUBE_COOKIES_B64, or "
+                    "YOUTUBE_COOKIES_FILE to a file that exists in the container). " + _BOT_HINT
+                )
+            else:
+                extra = (
+                    "Cookies are configured but YouTube still rejected the request; refresh the "
+                    f"export or try another network. {_BOT_HINT}"
+                )
+            hint = f"{message} — {extra}"
         return {
             "ok": False,
             "error": "yt-dlp could not read that URL",

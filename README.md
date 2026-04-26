@@ -6,10 +6,13 @@ The UI calls **yt-dlp** over `POST /api/resolve` to find a **single-file (muxed)
 
 YouTube often challenges datacenter IPs. This app retries alternate **player clients** (`mweb`, `ios`, `web`, `android`, …) and **strips `&list=…` from `watch` URLs** so a single `v=` is used.
 
-If it still fails, set **Netscape-format cookies** on the **server** (Vercel env, Dokploy env, or your `systemd` unit) — export from a logged-in browser, then add either:
+If it still fails, set **Netscape-format cookies** on the **server** (Vercel env, Dokploy env, or your `systemd` unit) — export from a logged-in browser (see the [YouTube extractors](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies) doc), then use one of:
 
-- **`YOUTUBE_COOKIES`** — the full file contents (multiline; some hosts support this), or  
-- **`YOUTUBE_COOKIES_B64`** — the same file **base64**-encoded (avoids newlines in the dashboard).
+- **`YOUTUBE_COOKIES`** — the full file contents (multiline; some UIs are awkward for this), or  
+- **`YOUTUBE_COOKIES_B64`** — the same file **base64**-encoded (avoids newlines in the dashboard), or  
+- **`YOUTUBE_COOKIES_FILE`** — path **inside the container** to a mounted cookie file (e.g. Docker / Dokploy volume: `/data/youtube_cookies.txt`).
+
+`GET /api/resolve` returns `cookiesConfigured: true` if any of the above is active and (for a file) the path is readable.
 
 Do not commit cookies. Rotate them if they leak. Follow [yt-dlp cookies](https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp) and YouTube’s terms.
 
