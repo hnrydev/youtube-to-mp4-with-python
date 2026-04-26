@@ -1,0 +1,239 @@
+.app {
+  min-height: 100vh;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 4rem;
+  background: radial-gradient(1000px 500px at 20% 0%, #141922 0%, #0a0a0a 50%);
+}
+
+.top {
+  margin-bottom: 1.75rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.brand h1 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin: 0 0 0.15rem;
+  letter-spacing: -0.02em;
+  font-family: var(--font-sans);
+}
+
+.sub {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.logo {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(160deg, #1e1e1e, #0f0f0f);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 0 #0008 inset, 0 0 0 1px #ffffff08;
+}
+
+.logo-b {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--accent);
+  opacity: 0.9;
+  box-shadow: 0 0 18px #6b9ef7aa;
+}
+
+.panel {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 1.25rem 1.25rem 1rem;
+  box-shadow: 0 0 0 1px #ffffff06 inset, 0 20px 50px #0008;
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.input {
+  flex: 1 1 200px;
+  min-width: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text);
+  font: 0.9rem/1.4 var(--font-mono);
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.input::placeholder {
+  color: #5a5a5a;
+}
+
+.input:hover {
+  border-color: var(--border-hi);
+}
+
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px #6b9ef7aa;
+  outline: none;
+}
+
+.btn {
+  font: 0.9rem/1 var(--font-sans);
+  font-weight: 500;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #1c1c1c;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s, opacity 0.1s;
+}
+
+.btn:hover:enabled {
+  background: #242424;
+  border-color: var(--border-hi);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn.primary {
+  background: #1a2a44;
+  border-color: #33558a;
+  color: #dbe7ff;
+}
+
+.btn.primary:hover:enabled {
+  background: #213356;
+  border-color: #4a78c0;
+}
+
+.btn.ghost {
+  background: transparent;
+  border-color: var(--border);
+}
+
+.feedback {
+  margin: 0.9rem 0 0;
+  color: var(--ok);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.feedback[data-tone="err"] {
+  color: var(--err);
+}
+
+.result {
+  margin-top: 1.25rem;
+  padding: 0.9rem 0.85rem 0.75rem;
+  border: 1px solid #32507a;
+  background: #0c1218;
+  border-radius: 8px;
+}
+
+.result-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.result h2 {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  margin: 0;
+  font-weight: 600;
+}
+
+.pill {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid #3a3a3a;
+}
+
+.pill.ok {
+  border-color: #2f5a3d;
+  color: var(--ok);
+  background: #0a1410;
+}
+
+.title {
+  margin: 0 0 0.8rem;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: #c8c8c8;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.hint {
+  margin: 0.85rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+
+.disclaimer h3 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #666;
+  margin: 1.1rem 0 0.35rem;
+  font-weight: 600;
+}
+
+.disclaimer p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #6a6a6a;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  color: #b0c4e4;
+  background: #0f0f0f;
+  padding: 0.05em 0.3em;
+  border-radius: 3px;
+}
+
+@media (max-width: 480px) {
+  .row {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+  }
+}
