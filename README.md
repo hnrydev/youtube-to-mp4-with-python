@@ -1,6 +1,17 @@
 # YouTube → progressive MP4 link (Vite + Python)
 
-The UI calls **yt-dlp** over `POST /api/resolve` to find a **single-file (muxed) MP4** (video + audio in one stream). This stack has **no ffmpeg** merge, so DASH-only formats are not combined. Some videos have no progressive MP4; the API returns a clear error.
+The UI calls **yt-dlp** over `POST /api/resolve` to find a **single-file (muxed) MP4** (video + audio in one stream). Merging DASH (separate A/V) on the server would require **ffmpeg**; that path is not included. Some videos have no progressive MP4; the API returns a clear error.
+
+## When YouTube says “Sign in to confirm you’re not a bot”
+
+YouTube often challenges datacenter IPs. This app retries alternate **player clients** (`mweb`, `ios`, `web`, `android`, …) and **strips `&list=…` from `watch` URLs** so a single `v=` is used.
+
+If it still fails, set **Netscape-format cookies** on the **server** (Vercel env, Dokploy env, or your `systemd` unit) — export from a logged-in browser, then add either:
+
+- **`YOUTUBE_COOKIES`** — the full file contents (multiline; some hosts support this), or  
+- **`YOUTUBE_COOKIES_B64`** — the same file **base64**-encoded (avoids newlines in the dashboard).
+
+Do not commit cookies. Rotate them if they leak. Follow [yt-dlp cookies](https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp) and YouTube’s terms.
 
 ## Deploy on a VPS (Dokploy + Nixpacks)
 

@@ -203,22 +203,6 @@
   color: var(--text-dim);
 }
 
-.disclaimer h3 {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #666;
-  margin: 1.1rem 0 0.35rem;
-  font-weight: 600;
-}
-
-.disclaimer p {
-  margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.5;
-  color: #6a6a6a;
-}
-
 code {
   font-family: var(--font-mono);
   font-size: 0.9em;

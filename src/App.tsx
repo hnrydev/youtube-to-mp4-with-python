@@ -140,22 +140,10 @@ export function App() {
               </button>
             </div>
             <p className="hint">
-              Browsers may download or play; use “Save as” in the context menu, or a download
-              tool. Not every track exposes a single progressive MP4 — the API picks the best
-              it can on the server.
+              Browsers may download or play, or you can paste the link into a download tool.
             </p>
           </section>
         )}
-
-        <section className="disclaimer" aria-label="Note">
-          <h3>Limits on Vercel</h3>
-          <p>
-            This uses serverless <code>yt-dlp</code> with no <code>ffmpeg</code> merge, so
-            DASH-only formats (separate video+audio) are not combined here. Deploy with a long
-            enough function timeout. YouTube can block or throttle datacenter IPs — if resolve
-            fails, try again later. Respect YouTube&apos;s terms and copyright.
-          </p>
-        </section>
       </main>
     </div>
   );

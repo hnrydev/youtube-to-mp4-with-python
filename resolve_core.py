@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-import json
+import base64
+import os
+import tempfile
 import urllib.parse
-from typing import Any
+from contextlib import contextmanager
+from typing import Any, Iterator
 
 import yt_dlp
 
@@ -18,10 +21,101 @@ _ALLOWED_HOSTS = frozenset(
 )
 
 NO_PROGRESSIVE_HINT = (
-    "YouTube often serves HD as DASH (separate A/V) — merging needs ffmpeg, which is not in "
-    "this setup. Try a clip that still offers 360p/480p progressive, or use yt-dlp with "
-    "ffmpeg on your own machine."
+    "This server only returns a single muxed MP4 stream. Many HD items are DASH (split A/V). "
+    "On a server without ffmpeg, try another quality or use yt-dlp+ffmpeg locally."
 )
+
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/131.0.0.0 Safari/537.36"
+)
+
+# Tried in order. Later entries fall back to yt-dlp default clients.
+_YT_CLIENT_LAYERS: list[dict[str, Any]] = [
+    {
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["mweb", "web", "ios", "android"],
+            }
+        }
+    },
+    {
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["ios", "mweb", "web"],
+            }
+        }
+    },
+    {
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android", "web"],
+            }
+        }
+    },
+    {},
+]
+
+_BOT_HINT = (
+    "If you control the server, set YOUTUBE_COOKIES (raw Netscape cookie text) or "
+    "YOUTUBE_COOKIES_B64 (base64) from an exported browser cookie file. "
+    "see https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp"
+)
+
+
+@contextmanager
+def _env_cookie_path() -> Iterator[str | None]:
+    text = (os.environ.get("YOUTUBE_COOKIES") or os.environ.get("YTDLP_COOKIES") or "").strip()
+    b64 = (os.environ.get("YOUTUBE_COOKIES_B64") or "").strip()
+    if b64:
+        try:
+            text = base64.b64decode(b64).decode("utf-8", errors="replace")
+        except Exception:  # noqa: BLE001
+            text = ""
+    if not text or not str(text).strip():
+        yield None
+        return
+    text = str(text).strip() + "\n"
+    path: str | None = None
+    try:
+        fd, path = tempfile.mkstemp(suffix="_yt_cookies.txt", text=True)
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:
+            f.write(text)
+        yield path
+    finally:
+        if path:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+
+
+def _strip_playlist_extras(url: str) -> str:
+    try:
+        p = urllib.parse.urlparse(url)
+        host = (p.netloc or "").lower()
+        if "youtube" not in host and "youtu.be" not in host:
+            return url
+        if "/watch" in (p.path or "") and "v=" in (p.query or ""):
+            q = urllib.parse.parse_qs(p.query, keep_blank_values=True)
+            v = (q.get("v") or [""])[0]
+            if v:
+                q2 = urllib.parse.urlencode({"v": v})
+                return urllib.parse.urlunparse((p.scheme, p.netloc, p.path, "", q2, ""))
+        return url
+    except (ValueError, TypeError, AttributeError):
+        return url
+
+
+def _is_bot_block_message(msg: str) -> bool:
+    s = (msg or "").lower()
+    if "not a bot" in s and "sign in" in s:
+        return True
+    if "sign in to confirm" in s:
+        return True
+    if "use --cookies" in s or "--cookies-from-browser" in s:
+        return True
+    return False
 
 
 def _is_allowed_youtube_url(url: str) -> bool:
@@ -79,14 +173,32 @@ def _best_progressive_mp4(info: dict[str, Any]) -> dict[str, str] | None:
 
 
 def _extract_info(url: str) -> dict[str, Any] | None:
-    ydl_opts: dict[str, Any] = {
-        "quiet": True,
-        "no_warnings": True,
-        "noplaylist": True,
-        "skip_download": True,
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        return ydl.extract_info(url, download=False)
+    """YouTube may block datacenter / bot clients; retry alternate player clients and cookies."""
+    u = _strip_playlist_extras(url)
+    last_err: Exception | None = None
+    with _env_cookie_path() as cookiefile:
+        for layer in _YT_CLIENT_LAYERS:
+            opts: dict[str, Any] = {
+                "quiet": True,
+                "no_warnings": True,
+                "noplaylist": True,
+                "skip_download": True,
+                "http_headers": {
+                    "User-Agent": UA,
+                    "Accept-Language": "en-US,en;q=0.9",
+                },
+            }
+            opts.update(layer)
+            if cookiefile:
+                opts["cookiefile"] = cookiefile
+            try:
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    return ydl.extract_info(u, download=False)
+            except Exception as e:  # noqa: BLE001
+                last_err = e
+    if last_err is not None:
+        raise last_err
+    return None
 
 
 def get_resolve_info() -> dict[str, Any]:
@@ -117,12 +229,15 @@ def post_resolve_from_body(body: Any) -> dict[str, Any]:
         info = _extract_info(url)
     except Exception as e:  # noqa: BLE001
         message = str(e) if e else "Unknown"
-        if len(message) > 300:
-            message = message[:300] + "…"
+        if len(message) > 400:
+            message = message[:400] + "…"
+        hint = message
+        if _is_bot_block_message(message):
+            hint = f"{message} — {_BOT_HINT}"
         return {
             "ok": False,
             "error": "yt-dlp could not read that URL",
-            "hint": message,
+            "hint": hint,
         }
 
     if not info:
