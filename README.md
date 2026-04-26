@@ -1,38 +1,47 @@
-# YouTube → progressive MP4 link (Vite + Python on Vercel)
+# YouTube → progressive MP4 link (Vite + Python)
 
-The UI calls a Vercel Python function that uses **yt-dlp** to find a **single-file (muxed) MP4** with both video and audio. There is **no ffmpeg** in serverless, so DASH (separate A/V) is not merged here. Some videos have no exposed progressive MP4; those will return an error from `/api/resolve`.
+The UI calls **yt-dlp** over `POST /api/resolve` to find a **single-file (muxed) MP4** (video + audio in one stream). This stack has **no ffmpeg** merge, so DASH-only formats are not combined. Some videos have no progressive MP4; the API returns a clear error.
 
-## Run locally (full stack)
+## Deploy on a VPS (Dokploy + Nixpacks)
 
-[Install the Vercel CLI](https://vercel.com/docs/cli), then from the project root:
+1. In Dokploy, use **Nixpacks** as the build type (default for many app templates; see [Dokploy build type](https://docs.dokploy.com/docs/core/applications/build-type) and [Nixpacks on Dokploy](https://nixpacks.com/docs/deploying/dokploy)).
+2. Point the app at this repo. **Do not** set *Publish directory* to `dist` for this project: the container must keep the full tree so **Python + `dist/`** are both present. The process is one **uvicorn** that serves the built SPA and the API.
+3. Map the container’s HTTP port to what Nixpacks uses: **`3000` by default** (override with the `PORT` environment variable). The start command runs  
+   `uvicorn server:app --host 0.0.0.0 --port $PORT` (default `3000` if `PORT` is unset).
+4. If the Nix build skips Node or pip, set in Dokploy (or use `nixpacks.toml` only after tuning):
 
-```bash
-npx vercel dev
-```
+   - `NIXPACKS_INSTALL_CMD` = `npm ci && python3 -m pip install -r requirements.txt` (or `npm install` if you have no lock file discipline)
+   - `NIXPACKS_START_CMD` = `sh -c 'uvicorn server:app --host 0.0.0.0 --port ${PORT:-3000}'`
 
-Open the URL the CLI prints (port may vary). The `vercel.json` `devCommand` runs Vite so the app and `api/resolve` share one origin.
-
-## Build only (frontend)
+### Run locally (same as production)
 
 ```bash
 npm install
+python3 -m pip install -r requirements.txt
 npm run build
+npm start
+# or: uvicorn server:app --host 0.0.0.0 --port 3000
 ```
 
-`npm run dev` serves the Vite app only; without `vercel dev`, `/api/resolve` is not available locally.
+Open `http://127.0.0.1:3000` — the API is at `/api/resolve` on the same origin.
 
-## Deploy
+## Vercel (serverless)
+
+[Install the Vercel CLI](https://vercel.com/docs/cli), then:
 
 ```bash
-npx vercel
+npx vercel dev
+# or: npx vercel
 ```
 
-- Set a **function max duration** that fits your plan (Hobby: 10s, Pro: up to 60s with the config in `vercel.json`). `yt-dlp` can be slow; upgrade or relax timeouts if you see 504s.
-- Respect **YouTube’s terms** and only use for content you’re allowed to access.
+Configure function duration in `vercel.json` (e.g. Pro) if `yt-dlp` is slow. Respect YouTube’s terms and copyright.
 
 ## Project layout
 
-- `src/` — React + Vite (Cursor-style dark UI)
-- `api/resolve.py` — serverless `handler` (yt-dlp)
-- `vercel.json` — build output, SPA rewrite, Python function settings
-- `requirements.txt` — `yt-dlp`
+- `src/` — React + Vite UI
+- `resolve_core.py` — shared `yt-dlp` resolution
+- `server.py` — FastAPI + static `dist/` (VPS)
+- `api/resolve.py` — Vercel `handler` only
+- `vercel.json` — Vercel build, SPA rewrites, Python function settings
+- `nixpacks.toml` — Node + Vite + pip + uvicorn for Dokploy/Nixpacks
+- `requirements.txt` — `yt-dlp`, `fastapi`, `uvicorn`

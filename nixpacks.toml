@@ -1,0 +1,21 @@
+# Nixpacks (Dokploy default). Extends the detected plan with a pip install, then
+# Vite `npm run build`, then uvicorn for `server.py` + `dist/`.
+# If the image misses Node or this merge fails, set in Dokploy:
+#   NIXPACKS_INSTALL_CMD  e.g. npm ci && python3 -m pip install -r requirements.txt
+#   NIXPACKS_START_CMD   sh -c 'uvicorn server:app --host 0.0.0.0 --port ${PORT:-3000}'
+
+[variables]
+NODE_ENV = "production"
+PYTHONUNBUFFERED = "1"
+
+providers = ["...", "python"]
+
+[phases.install]
+cmds = ["...", "python3 -m pip install -r requirements.txt"]
+
+[phases.build]
+dependsOn = ["install"]
+cmds = ["npm run build"]
+
+[start]
+cmd = "sh -c 'uvicorn server:app --host 0.0.0.0 --port ${PORT:-3000}'"
