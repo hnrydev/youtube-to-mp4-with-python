@@ -1,10 +1,12 @@
-# Nixpacks (Dokploy default). Extends the detected plan with a pip install, then
-# Vite `npm run build`, then uvicorn for `server.py` + `dist/`.
-# If the image misses Node or this merge fails, set in Dokploy:
-#   NIXPACKS_INSTALL_CMD  e.g. npm ci && python3 -m pip install -r requirements.txt
-#   NIXPACKS_START_CMD   sh -c 'uvicorn server:app --host 0.0.0.0 --port ${PORT:-3000}'
+# Nixpacks (Dokploy)
+#
+# Do NOT add `python3 -m pip install` here: the Nix `python3` in PATH has no pip
+# (build fails: "No module named pip"). Nixpacks' `python:install` phase creates
+# `/opt/venv` and runs `pip install -r requirements.txt` there.
+#
+# [phases.install] is only `...` so we keep the Node `npm ci` (and any other
+# merged install steps) without a duplicate broken pip on the Nix python.
 
-# Top-level key — if this sits under [variables], TOML treats it as variables.providers (invalid).
 providers = ["...", "python"]
 
 [variables]
@@ -12,11 +14,12 @@ NODE_ENV = "production"
 PYTHONUNBUFFERED = "1"
 
 [phases.install]
-cmds = ["...", "python3 -m pip install -r requirements.txt"]
+cmds = ["..."]
 
 [phases.build]
 dependsOn = ["install"]
 cmds = ["npm run build"]
 
+# uvicorn is installed in /opt/venv; ensure that bin dir is on PATH
 [start]
-cmd = "sh -c 'uvicorn server:app --host 0.0.0.0 --port ${PORT:-3000}'"
+cmd = "sh -c 'export PATH=/opt/venv/bin:$PATH && exec uvicorn server:app --host 0.0.0.0 --port ${PORT:-3000}'"

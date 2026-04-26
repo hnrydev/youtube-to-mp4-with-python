@@ -8,10 +8,7 @@ The UI calls **yt-dlp** over `POST /api/resolve` to find a **single-file (muxed)
 2. Point the app at this repo. **Do not** set *Publish directory* to `dist` for this project: the container must keep the full tree so **Python + `dist/`** are both present. The process is one **uvicorn** that serves the built SPA and the API.
 3. Map the container’s HTTP port to what Nixpacks uses: **`3000` by default** (override with the `PORT` environment variable). The start command runs  
    `uvicorn server:app --host 0.0.0.0 --port $PORT` (default `3000` if `PORT` is unset).
-4. If the Nix build skips Node or pip, set in Dokploy (or use `nixpacks.toml` only after tuning):
-
-   - `NIXPACKS_INSTALL_CMD` = `npm ci && python3 -m pip install -r requirements.txt` (or `npm install` if you have no lock file discipline)
-   - `NIXPACKS_START_CMD` = `sh -c 'uvicorn server:app --host 0.0.0.0 --port ${PORT:-3000}'`
+4. If the Nix build still mis-orders install steps, use **Dokploy env overrides** (see [Dokploy Nixpacks](https://docs.dokploy.com/docs/core/applications/build-type)) — do **not** use `python3 -m pip` on the Nix `python3` (it has no `pip`). Nixpacks’ `python:install` uses `/opt/venv` and `pip install -r requirements.txt` there. The `nixpacks.toml` `start` command prepends `/opt/venv/bin` to `PATH` so `uvicorn` runs from that venv.
 
 ### Run locally (same as production)
 
