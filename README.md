@@ -20,6 +20,8 @@ npm start
 # or: uvicorn server:app --host 0.0.0.0 --port 3000
 ```
 
+Before a release or deploy, run **`npm run check`** (Vite production build + `py_compile` + import of `resolve_core` / `server`).
+
 Open `http://127.0.0.1:3000` — the API is at `/api/resolve` on the same origin.
 
 ## Vercel (serverless)
@@ -41,4 +43,5 @@ Configure function duration in `vercel.json` (e.g. Pro) if `yt-dlp` is slow. Res
 - `api/resolve.py` — Vercel `handler` only
 - `vercel.json` — Vercel build, SPA rewrites, Python function settings
 - `nixpacks.toml` — Node + Vite + pip + uvicorn for Dokploy/Nixpacks
+- `scripts/verify.py` — used by `npm run check`
 - `requirements.txt` — `yt-dlp`, `fastapi`, `uvicorn`

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "check": "npm run build && python scripts/verify.py",
     "preview": "vite preview",
     "start": "uvicorn server:app --host 0.0.0.0 --port 3000"
   },
